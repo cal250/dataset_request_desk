@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build images
+        run: docker compose build api
+
+      - name: Start database
+        run: docker compose up -d db
+
+      - name: Wait for database
+        run: |
+          for i in $(seq 1 24); do
+            docker compose exec -T db pg_isready -U desk -d dataset_request_desk && break
+            sleep 5
+          done
+          docker compose exec -T db pg_isready -U desk -d dataset_request_desk
+
+      - name: Lint
+        run: docker compose run --rm api python -m ruff check app tests
+
+      - name: Tests
+        run: docker compose run --rm api python -m pytest -q
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs db
