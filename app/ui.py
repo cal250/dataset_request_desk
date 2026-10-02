@@ -3,9 +3,7 @@
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
-# auto_reload: template edits show up without restarting the dev server
-# (uvicorn --reload only watches .py files; Jinja caches parsed templates).
-templates = Jinja2Templates(directory="app/templates", auto_reload=True)
+templates = Jinja2Templates(directory="app/templates")
 
 
 def wants_html(request: Request) -> bool:
