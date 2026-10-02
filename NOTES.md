@@ -69,17 +69,40 @@ sizes, and never interpolate filenames, but a hostile multi-MB file still
 occupies a worker (streaming/chunked import + size limits come with job
 tracking).
 
-## 5. Scale
+## 5. Scale (measured, not guessed)
 
-At 10× users the stateless API + connection pooling behind a load balancer is
-fine; sessions are already DB-backed lookups, no sticky state. At 100×
-episodes the import scan and the analytics day/robot + top-task groupings feel
-it first. Plan, in order: confirm with `EXPLAIN ANALYZE`, tighten the
-composite indexes, add a daily rollup/materialized view for the dashboard
-queries, then consider read replicas/partitioning. No queues, caches, or
-replicas before measurements demand them.
+We loaded 50,171 episodes and drove the app with 10 concurrent users (200
+requests). Single user: health 13ms, requests page 25ms, episodes page 30ms,
+year-range analytics 67ms. Under load (28 req/s): p50 119–215ms, p95
+307–563ms — sub-second throughout, acceptable for an internal tool. 20 parallel
+logins completed in 3.0s. Two surprises: (1) a 40-session Argon2 burst
+serialized badly on the single dev uvicorn worker (median session 14s) — auth
+CPU, not Postgres, is the first 10× bottleneck, fixed by multi-worker uvicorn
++ login rate limiting before any DB work; (2) the idempotent import *rerun*
+over 50k rows took ~88s of row-by-row SELECTs, while analytics over the same
+data took 0.07s — so the import loop, not the queries, is the real 100× debt
+(bulk `COPY`/batched upsert first, rollups only if `EXPLAIN ANALYZE` then
+still complains). No queues, caches, or replicas before measurements demand
+them — now we have the measurements.
 
-## 6. AI tooling
+## 6. Tradeoffs made along the way
+
+- *Dual JSON/HTML endpoints* instead of separate API + pages: one URL serves
+  both via `wants_html()`, keeping `/docs` and the browser consistent. Cost:
+  every list/detail route carries a template branch; the alternative (split
+  routers) would have doubled the route surface for the same rules.
+- *Single-commit import* instead of chunked jobs: a 190-row brief file imports
+  atomically with a clear report, at the price of a worker held for the whole
+  file — the 50k probe proved this won't survive 100×, hence the job-queue
+  item in §2.
+- *Per-request user reload* instead of caching the session: every action pays
+  one indexed lookup so deactivation/role changes bite instantly. Cheap at our
+  scale, revisit only if auth lookups ever dominate profiles.
+- *No `Secure`-by-default cookies / no CSRF yet*: kept local HTTP review
+  frictionless; production must flip `SESSION_HTTPS_ONLY=true` and add tokens
+  (§4). A conscious demo-vs-prod split, not an oversight.
+
+## 7. AI tooling
 
 An AI coding assistant (Muse Spark via OpenCode) scaffolded boilerplate
 (models, routes, test skeletons) and drafted these docs; every rule, query,
