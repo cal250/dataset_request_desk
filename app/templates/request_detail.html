@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Request {{ req.id }} — Dataset Request Desk{% endblock %}
+{% block header %}Request {{ req.id }}{% endblock %}
+{% block content %}
+<div class="detail">
+  <div class="panel">
+    <h2>Context</h2>
+    <p><strong>Task:</strong> {{ req.task_name }}<br>
+    <strong>Progress:</strong>
+    <span class="progress-row">{{ assigned|length }} / {{ req.episodes_requested }} episodes assigned
+      <span class="progress"><span style="width: {{ ([assigned|length / req.episodes_requested * 100, 100] | min) | round(0) }}%"></span></span>
+    </span><br>
+    <strong>Deadline:</strong> {{ req.deadline }}<br>
+    <strong>Status:</strong> <span class="badge badge-{{ req.status.value }}">{{ req.status.value.replace('_', ' ') }}</span></p>
+    {% if req.notes %}<p>{{ req.notes }}</p>{% endif %}
+    <h2>Next action</h2>
+    {% if transitions %}
+      {% for t in transitions %}
+      <form class="inline" method="post" action="/requests/{{ req.id }}/transitions/form">
+        <input type="hidden" name="status" value="{{ t.value }}">
+        <button class="btn{% if t.value in ('accepted', 'delivered', 'in_progress') %} btn-primary{% endif %}" type="submit"
+          {% if t.value == 'delivered' and assigned|length < req.episodes_requested %}disabled title="Needs {{ req.episodes_requested }} assigned episodes"{% endif %}>
+          {{ labels[t.value] }}
+        </button>
+      </form>
+      {% endfor %}
+      {% if req.status.value == 'in_progress' and assigned|length < req.episodes_requested %}
+      <p>Delivery needs {{ req.episodes_requested - assigned|length }} more episode(s).</p>
+      {% endif %}
+    {% else %}
+    <p>No actions available for your role at this status.</p>
+    {% endif %}
+    <h2>History</h2>
+    <ul>
+    {% for h in history %}
+      <li>{{ h.from_status.value if h.from_status else '—' }} → {{ h.to_status.value }} · user {{ h.changed_by }} · {{ h.changed_at.strftime('%Y-%m-%d %H:%M') }}</li>
+    {% endfor %}
+    </ul>
+  </div>
+  <div class="panel">
+    <h2>Assigned episodes ({{ assigned|length }})</h2>
+    {% if assigned %}
+    <ul>{% for a in assigned %}<li>{{ episodes[a.episode_id].episode_id }} · {{ episodes[a.episode_id].task_name }} · {{ episodes[a.episode_id].quality.value }}</li>{% endfor %}</ul>
+    {% else %}<p>No episodes assigned yet.</p>{% endif %}
+    {% if user.role in ('operator', 'admin') and req.status.value in ('submitted', 'in_progress', 'rejected') %}
+    <h2>Assign eligible episodes</h2>
+    <form method="get" action="/requests/{{ req.id }}"
+        hx-get="/requests/{{ req.id }}/eligible" hx-target="#eligible" hx-swap="innerHTML transition:true"
+        hx-trigger="change from:select, submit">
+      <div class="filters">
+        <label>Task <select name="task_name"><option value="">Any</option></select></label>
+        <label>Quality <select name="quality"><option value="">good + usable</option><option value="good">good</option><option value="usable">usable</option></select></label>
+        <button class="btn" type="submit">Filter <span class="spinner" aria-hidden="true"></span></button>
+      </div>
+    </form>
+    <div id="eligible">{% include "eligible_rows.html" %}</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

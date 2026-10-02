@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Dataset Request Desk{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">Dataset Request Desk<small>Data operations</small></div>
+    <nav class="nav" aria-label="Primary">
+      <a href="/requests" class="{% if active == 'requests' %}active{% endif %}">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h7"/></svg>
+        Requests</a>
+      {% if user and user.role in ('operator', 'admin') %}
+      <a href="/episodes" class="{% if active == 'episodes' %}active{% endif %}">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="2"/><path d="M2 6h12M6 6v8"/></svg>
+        Episodes</a>
+      <a href="/analytics" class="{% if active == 'analytics' %}active{% endif %}">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 14V8M6 14V4M10 14v-6M14 14V2"/></svg>
+        Analytics</a>
+      {% endif %}
+      {% if user and user.role == 'admin' %}
+      <a href="/users" class="{% if active == 'users' %}active{% endif %}">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="6" cy="5" r="2.5"/><path d="M1.5 13c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4M11 3.5a2.5 2.5 0 010 5M12.5 9.5c1.5.5 2.5 1.7 2.5 3.5"/></svg>
+        Users</a>
+      {% endif %}
+    </nav>
+    <div class="userbox">
+      {% if user %}
+      {{ user.name }} · {{ user.role }}
+      <form method="post" action="/logout"><button class="btn" type="submit">Log out</button></form>
+      {% else %}
+      <a href="/login">Log in</a>
+      {% endif %}
+    </div>
+  </aside>
+  <div class="main">
+    <div class="header">{% block header %}{% endblock %}</div>
+    <div class="content">
+      {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script>
+(function () {
+  var params = new URLSearchParams(window.location.search);
+  var msg = params.get("toast");
+  if (!msg) return;
+  var el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  params.delete("toast");
+  var query = params.toString();
+  history.replaceState(null, "", window.location.pathname + (query ? "?" + query : ""));
+  setTimeout(function () { el.classList.remove("show"); }, 3500);
+})();
+</script>
+</body>
+</html>

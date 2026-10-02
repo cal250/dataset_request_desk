@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Requests — Dataset Request Desk{% endblock %}
+{% block header %}Requests{% endblock %}
+{% block content %}
+<div class="pagehead">
+  <h1>{% if user.role == 'client' %}My requests{% else %}All requests{% endif %}</h1>
+  {% if user.role == 'client' %}<a class="btn btn-primary" href="/requests/new">Create request</a>{% endif %}
+</div>
+{% if requests %}
+<div class="chips" aria-label="Status summary">
+  {% for s in status_counts %}
+  <span class="chip">{{ s.label }} · {{ s.count }}</span>
+  {% endfor %}
+</div>
+<table>
+  <thead><tr>
+    <th>ID</th>{% if user.role != 'client' %}<th>Client</th>{% endif %}<th>Task</th>
+    <th>Progress</th><th>Deadline</th><th>Status</th><th>Updated</th>
+  </tr></thead>
+  <tbody>
+  {% for r in requests %}
+  <tr>
+    <td><a href="/requests/{{ r.id }}">{{ r.id }}</a></td>
+    {% if user.role != 'client' %}<td>{{ r.client_id }}</td>{% endif %}
+    <td>{{ r.task_name }}</td>
+    <td><span class="progress-row">{{ counts.get(r.id, 0) }} / {{ r.episodes_requested }}
+      <span class="progress"><span style="width: {{ ([counts.get(r.id, 0) / r.episodes_requested * 100, 100] | min) | round(0) }}%"></span></span>
+    </span></td>
+    <td>{{ r.deadline }}</td>
+    <td><span class="badge badge-{{ r.status.value }}">{{ r.status.value.replace('_', ' ') }}</span></td>
+    <td>{{ r.submitted_at.strftime('%Y-%m-%d') }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty">No requests yet.{% if user.role == 'client' %} <a href="/requests/new">Create request</a>.{% endif %}</div>
+{% endif %}
+{% endblock %}

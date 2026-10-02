@@ -1,6 +1,7 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -40,6 +41,25 @@ def create_assignment(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     episode = _episode_or_404(session, payload.episode_id)
     return assign_episode(session, request, episode, actor)
+
+
+@router.post("/requests/{request_id}/assignments/form", status_code=status.HTTP_303_SEE_OTHER)
+def create_assignment_form(
+    request_id: int,
+    request: Request,
+    actor: Annotated[User, Depends(get_operator_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+    episode_id: Annotated[int, Form()],
+):
+    row = session.scalar(select(DatasetRequest).where(DatasetRequest.id == request_id))
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    episode = _episode_or_404(session, episode_id)
+    assign_episode(session, row, episode, actor)
+    return RedirectResponse(
+        url=f"/requests/{request_id}?toast=Episode+assigned",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @router.get("/requests/{request_id}/assignments", response_model=list[AssignmentOut])

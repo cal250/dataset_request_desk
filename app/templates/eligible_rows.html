@@ -1,0 +1,18 @@
+{% if eligible %}
+<table>
+  <thead><tr><th>Episode</th><th>Task</th><th>Quality</th><th></th></tr></thead>
+  <tbody>
+  {% for e in eligible %}
+  <tr>
+    <td>{{ e.episode_id }}</td><td>{{ e.task_name }}</td><td>{{ e.quality.value }}</td>
+    <td><form class="inline" method="post" action="/requests/{{ req.id }}/assignments/form">
+      <input type="hidden" name="episode_id" value="{{ e.id }}">
+      <button class="btn" type="submit">Assign</button>
+    </form></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No unassigned eligible episodes match.</p>
+{% endif %}

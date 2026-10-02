@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Analytics — Dataset Request Desk{% endblock %}
+{% block header %}Analytics{% endblock %}
+{% block content %}
+<form method="get" action="/analytics">
+  <div class="filters">
+    <label>Start <input type="date" name="start" value="{{ start }}" required></label>
+    <label>End <input type="date" name="end" value="{{ end }}" required></label>
+    <button class="btn btn-primary" type="submit">Run</button>
+  </div>
+</form>
+{% if data %}
+<div class="detail">
+  <div class="panel"><h2>Episodes per day / robot</h2>
+    <table><thead><tr><th>Day</th><th>Robot</th><th>Count</th></tr></thead><tbody>
+    {% for r in data.episodes_per_day_robot %}<tr><td>{{ r.day }}</td><td>{{ r.robot_id }}</td><td>{{ r.count }}</td></tr>{% endfor %}
+    </tbody></table></div>
+  <div class="panel"><h2>Requests by status</h2>
+    <table><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody>
+    {% for r in data.requests_by_status %}<tr><td>{{ r.status }}</td><td>{{ r.count }}</td></tr>{% endfor %}
+    </tbody></table>
+    <p>Median submitted → delivered: {{ data.median_submitted_to_delivered_seconds if data.median_submitted_to_delivered_seconds is not none else '—' }}s</p>
+    <h2>Top tasks (good episodes)</h2>
+    <table><thead><tr><th>Task</th><th>Count</th></tr></thead><tbody>
+    {% for r in data.top_tasks_by_good_episodes %}<tr><td>{{ r.task_name }}</td><td>{{ r.count }}</td></tr>{% endfor %}
+    </tbody></table></div>
+</div>
+{% endif %}
+{% endblock %}

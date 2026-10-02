@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Episodes — Dataset Request Desk{% endblock %}
+{% block header %}Episodes{% endblock %}
+{% block content %}
+<div class="pagehead"><h1>Episodes</h1>
+<form class="inline" method="post" action="/episodes/import" enctype="multipart/form-data">
+  <input type="file" name="file" accept=".csv" required aria-label="CSV file">
+  <button class="btn btn-primary" type="submit">Import episodes</button>
+</form>
+</div>
+{% if report %}
+<div class="panel"><h2>Import result</h2>
+<p>Inserted {{ report.inserted }} · already up to date {{ report.already_exists }} · invalid {{ report.skipped_invalid }} · conflicts {{ report.skipped_conflict }}</p>
+{% if report.errors %}<ul>{% for e in report.errors %}<li>row {{ e.row }} ({{ e.episode_id or '—' }}): {{ e.reason }}</li>{% endfor %}</ul>{% endif %}
+</div>
+{% endif %}
+<form method="get" action="/episodes" hx-get="/episodes" hx-target="#episodes-table" hx-swap="outerHTML" hx-select="#episodes-table" hx-trigger="change from:select, submit">
+  <div class="filters">
+    <label>Task <input name="task_name" value="{{ task_name or '' }}"></label>
+    <label>Quality <select name="quality"><option value="">Any</option><option value="good" {% if quality == 'good' %}selected{% endif %}>good</option><option value="usable" {% if quality == 'usable' %}selected{% endif %}>usable</option><option value="bad" {% if quality == 'bad' %}selected{% endif %}>bad</option></select></label>
+    <button class="btn" type="submit">Filter <span class="spinner" aria-hidden="true"></span></button>
+  </div>
+</form>
+<table id="episodes-table">
+  <thead><tr><th>Episode</th><th>Robot</th><th>Task</th><th>Recorded</th><th>Quality</th></tr></thead>
+  <tbody>
+  {% for e in episodes %}
+  <tr><td>{{ e.episode_id }}</td><td>{{ e.robot_id }}</td><td>{{ e.task_name }}</td><td>{{ e.recorded_at.strftime('%Y-%m-%d') }}</td><td>{{ e.quality.value }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p>Showing {{ episodes|length }} of {{ total }}.</p>
+{% endblock %}
