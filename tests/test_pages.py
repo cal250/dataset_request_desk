@@ -108,6 +108,75 @@ def test_htmx_partial_request_returns_filtered_html(
     assert "Showing 1–2 of 2." in response.text
 
 
+def test_detail_shows_only_permitted_actions(
+    client: TestClient, client_user: User, operator_user: User
+) -> None:
+    """Clients must not see operator buttons (and vice versa)."""
+    _login(client, client_user)
+    response = client.post(
+        "/requests",
+        json={"task_name": "pick cup", "episodes_requested": 1, "deadline": "2026-12-31"},
+    )
+    rid = response.json()["id"]
+
+    mine = client.get(f"/requests/{rid}", headers=HTML).text
+    assert "Start work" not in mine
+    assert "Mark delivered" not in mine
+
+    _login(client, operator_user)
+    theirs = client.get(f"/requests/{rid}", headers=HTML).text
+    assert "Start work" in theirs
+    assert "Accept delivery" not in theirs
+
+
+def test_form_transition_redirects_and_failed_repeat_rerenders(
+    client: TestClient, db_session, client_user: User, operator_user: User
+) -> None:
+    """The browser form path must 303 on success and never 500 on failure."""
+    from datetime import UTC, datetime
+
+    from app.models.episode import Episode, EpisodeQuality
+
+    _login(client, client_user)
+    rid = client.post(
+        "/requests",
+        json={"task_name": "pick cup", "episodes_requested": 1, "deadline": "2026-12-31"},
+    ).json()["id"]
+
+    _login(client, operator_user)
+    first = client.post(
+        f"/requests/{rid}/transitions/form",
+        data={"target_status": "in_progress"},
+        follow_redirects=False,
+    )
+    assert first.status_code == 303, first.text
+
+    episode = Episode(
+        episode_id="EP-FORM1",
+        robot_id="arm-01",
+        task_name="pick cup",
+        recorded_at=datetime(2026, 9, 10, 10, 0, tzinfo=UTC),
+        duration_seconds=60,
+        operator_name="Tester",
+        quality=EpisodeQuality.GOOD,
+    )
+    db_session.add(episode)
+    db_session.flush()
+    client.post(f"/requests/{rid}/assignments", json={"episode_id": episode.id})
+    delivered = client.post(
+        f"/requests/{rid}/transitions/form",
+        data={"target_status": "delivered"},
+        follow_redirects=False,
+    )
+    assert delivered.status_code == 303, delivered.text
+
+    repeat = client.post(
+        f"/requests/{rid}/transitions/form", data={"target_status": "delivered"}
+    )
+    assert repeat.status_code == 200
+    assert "Cannot move from delivered to delivered" in repeat.text
+
+
 def test_json_list_still_returns_json(client: TestClient, client_user: User) -> None:
     _login(client, client_user)
     response = client.get("/requests")

@@ -160,46 +160,64 @@ def detail(
 ):
     row = get_request_or_404(session, user, request_id)
     if wants_html(request):
-        assigned = list(
-            session.scalars(
-                select(Assignment).where(Assignment.request_id == row.id).order_by(Assignment.id)
-            ).all()
-        )
-        episodes = {
-            e.id: e
-            for e in session.scalars(
-                select(Episode).where(
-                    Episode.id.in_([a.episode_id for a in assigned]) if assigned else False
-                )
-            ).all()
-        }
-        history = list(
-            session.scalars(
-                select(StatusHistory)
-                .where(StatusHistory.request_id == row.id)
-                .order_by(StatusHistory.id)
-            ).all()
-        )
-        tasks = list(
-            session.scalars(select(Episode.task_name).distinct().order_by(Episode.task_name)).all()
-        )
-        return templates.TemplateResponse(
-            request,
-            "request_detail.html",
-            {
-                "user": user,
-                "active": "requests",
-                "req": row,
-                "assigned": assigned,
-                "episodes": episodes,
-                "history": history,
-                "transitions": _NEXT[row.status],
-                "labels": _TRANSITION_LABELS,
-                "eligible": _eligible(session, row)[:20],
-                "tasks": tasks,
-            },
-        )
+        return _detail_page(request, user, session, row)
     return row
+
+
+def _detail_page(request, user, session, row, error: str | None = None):
+    assigned = list(
+        session.scalars(
+            select(Assignment).where(Assignment.request_id == row.id).order_by(Assignment.id)
+        ).all()
+    )
+    episodes = {
+        e.id: e
+        for e in session.scalars(
+            select(Episode).where(
+                Episode.id.in_([a.episode_id for a in assigned]) if assigned else False
+            )
+        ).all()
+    }
+    history = list(
+        session.scalars(
+            select(StatusHistory)
+            .where(StatusHistory.request_id == row.id)
+            .order_by(StatusHistory.id)
+        ).all()
+    )
+    tasks = list(
+        session.scalars(select(Episode.task_name).distinct().order_by(Episode.task_name)).all()
+    )
+    # Show only the actions this viewer may actually take; the service
+    # still enforces the same rules server-side (UI hiding is not auth).
+    if user.role in (UserRole.OPERATOR, UserRole.ADMIN):
+        allowed = {
+            RequestStatus.IN_PROGRESS,
+            RequestStatus.DELIVERED,
+        }
+        transitions = [s for s in _NEXT[row.status] if s in allowed]
+    elif row.client_id == user.id:
+        allowed = {RequestStatus.ACCEPTED, RequestStatus.REJECTED}
+        transitions = [s for s in _NEXT[row.status] if s in allowed]
+    else:
+        transitions = []
+    return templates.TemplateResponse(
+        request,
+        "request_detail.html",
+        {
+            "user": user,
+            "active": "requests",
+            "req": row,
+            "assigned": assigned,
+            "episodes": episodes,
+            "history": history,
+            "transitions": transitions,
+            "labels": _TRANSITION_LABELS,
+            "eligible": _eligible(session, row)[:20],
+            "tasks": tasks,
+            "error": error,
+        },
+    )
 
 
 def _eligible(
@@ -256,10 +274,17 @@ def transition_form(
     request: Request,
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_db_session)],
-    status: Annotated[RequestStatus, Form()],
+    target_status: Annotated[RequestStatus, Form()],
 ):
+    from fastapi import HTTPException
+
     row = get_request_or_404(session, user, request_id)
-    transition_request(session, row, status, actor=user)
+    try:
+        transition_request(session, row, target_status, actor=user)
+    except HTTPException as exc:
+        # Browser-friendly: re-render the page with the reason inline.
+        session.rollback()
+        return _detail_page(request, user, session, row, error=str(exc.detail))
     return RedirectResponse(
         url=f"/requests/{request_id}?toast=Status+updated",
         status_code=status.HTTP_303_SEE_OTHER,

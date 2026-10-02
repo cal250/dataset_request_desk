@@ -17,7 +17,7 @@
     {% if transitions %}
       {% for t in transitions %}
       <form class="inline" method="post" action="/requests/{{ req.id }}/transitions/form">
-        <input type="hidden" name="status" value="{{ t.value }}">
+        <input type="hidden" name="target_status" value="{{ t.value }}">
         <button class="btn{% if t.value in ('accepted', 'delivered', 'in_progress') %} btn-primary{% endif %}" type="submit"
           {% if t.value == 'delivered' and assigned|length < req.episodes_requested %}disabled title="Needs {{ req.episodes_requested }} assigned episodes"{% endif %}>
           {{ labels[t.value] }}

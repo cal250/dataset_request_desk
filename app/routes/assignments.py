@@ -51,11 +51,17 @@ def create_assignment_form(
     session: Annotated[Session, Depends(get_db_session)],
     episode_id: Annotated[int, Form()],
 ):
+    from app.routes.requests import _detail_page
+
     row = session.scalar(select(DatasetRequest).where(DatasetRequest.id == request_id))
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     episode = _episode_or_404(session, episode_id)
-    assign_episode(session, row, episode, actor)
+    try:
+        assign_episode(session, row, episode, actor)
+    except HTTPException as exc:
+        session.rollback()
+        return _detail_page(request, actor, session, row, error=str(exc.detail))
     return RedirectResponse(
         url=f"/requests/{request_id}?toast=Episode+assigned",
         status_code=status.HTTP_303_SEE_OTHER,
