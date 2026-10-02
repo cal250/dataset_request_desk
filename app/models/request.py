@@ -18,7 +18,9 @@ class RequestStatus(StrEnum):
 
 class DatasetRequest(Base):
     __tablename__ = "requests"
-    __table_args__ = (CheckConstraint("episodes_requested > 0", name="request_episode_count_positive"),)
+    __table_args__ = (
+        CheckConstraint("episodes_requested > 0", name="request_episode_count_positive"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
