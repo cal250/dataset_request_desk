@@ -180,6 +180,9 @@ def detail(
                 .order_by(StatusHistory.id)
             ).all()
         )
+        tasks = list(
+            session.scalars(select(Episode.task_name).distinct().order_by(Episode.task_name)).all()
+        )
         return templates.TemplateResponse(
             request,
             "request_detail.html",
@@ -193,6 +196,7 @@ def detail(
                 "transitions": _NEXT[row.status],
                 "labels": _TRANSITION_LABELS,
                 "eligible": _eligible(session, row)[:20],
+                "tasks": tasks,
             },
         )
     return row

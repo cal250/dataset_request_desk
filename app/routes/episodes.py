@@ -73,9 +73,9 @@ def list_episodes(
     if quality is not None:
         query = query.where(Episode.quality == quality)
     total = session.scalar(select(func.count()).select_from(query.subquery()))
-    rows = list(
-        session.scalars(query.offset(max(offset, 0)).limit(min(max(limit, 1), 200))).all()
-    )
+    page_limit = min(max(limit, 1), 200)
+    page_offset = max(offset, 0)
+    rows = list(session.scalars(query.offset(page_offset).limit(page_limit)).all())
     if wants_html(request):
         return templates.TemplateResponse(
             request,
@@ -88,6 +88,8 @@ def list_episodes(
                 "task_name": task_name or "",
                 "quality": quality.value if quality else "",
                 "report": None,
+                "offset": page_offset,
+                "limit": page_limit,
             },
         )
     return rows
@@ -128,6 +130,8 @@ def import_upload(
                 "task_name": "",
                 "quality": "",
                 "report": _report_out(report),
+                "offset": 0,
+                "limit": 50,
             },
         )
     return _report_out(report)

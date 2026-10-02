@@ -77,6 +77,37 @@ def test_client_blocked_from_operator_and_admin_pages(
     assert client.get("/requests/new", headers=HTML).status_code == 200
 
 
+def test_htmx_partial_request_returns_filtered_html(
+    client: TestClient, db_session, operator_user: User
+) -> None:
+    """HTMX sends HX-Request with Accept */*; the swap needs HTML, not JSON."""
+    from datetime import UTC, datetime
+
+    from app.models.episode import Episode, EpisodeQuality
+
+    for i, quality in enumerate((EpisodeQuality.GOOD, EpisodeQuality.BAD)):
+        db_session.add(
+            Episode(
+                episode_id=f"EP-H{i}",
+                robot_id="arm-01",
+                task_name="pick cup",
+                recorded_at=datetime(2026, 9, 10, 10, 0, tzinfo=UTC),
+                duration_seconds=60,
+                operator_name="Tester",
+                quality=quality,
+            )
+        )
+    db_session.flush()
+    _login(client, operator_user)
+    response = client.get(
+        "/episodes", params={"task_name": "pick cup"}, headers={"HX-Request": "true"}
+    )
+    assert response.status_code == 200
+    assert 'id="episodes-result"' in response.text
+    # Counter travels inside the swapped region, so it stays truthful.
+    assert "Showing 2 of 2" in response.text
+
+
 def test_json_list_still_returns_json(client: TestClient, client_user: User) -> None:
     _login(client, client_user)
     response = client.get("/requests")

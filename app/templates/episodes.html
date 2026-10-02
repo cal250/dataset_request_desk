@@ -2,25 +2,30 @@
 {% block title %}Episodes — Dataset Request Desk{% endblock %}
 {% block header %}Episodes{% endblock %}
 {% block content %}
-<div class="pagehead"><h1>Episodes</h1>
-<form class="inline" method="post" action="/episodes/import" enctype="multipart/form-data">
-  <input type="file" name="file" accept=".csv" required aria-label="CSV file">
-  <button class="btn btn-primary" type="submit">Import episodes</button>
-</form>
-</div>
+<div class="pagehead"><h1>Episodes</h1></div>
+<details class="panel import-panel">
+  <summary>Import episodes from CSV</summary>
+  <form class="import-form" method="post" action="/episodes/import" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".csv" required aria-label="CSV file">
+    <button class="btn btn-primary" type="submit">Import episodes</button>
+  </form>
+</details>
 {% if report %}
 <div class="panel"><h2>Import result</h2>
 <p>Inserted {{ report.inserted }} · already up to date {{ report.already_exists }} · invalid {{ report.skipped_invalid }} · conflicts {{ report.skipped_conflict }}</p>
 {% if report.errors %}<ul>{% for e in report.errors %}<li>row {{ e.row }} ({{ e.episode_id or '—' }}): {{ e.reason }}</li>{% endfor %}</ul>{% endif %}
 </div>
 {% endif %}
-<form method="get" action="/episodes" hx-get="/episodes" hx-target="#episodes-table" hx-swap="outerHTML" hx-select="#episodes-table" hx-trigger="change from:select, submit">
+<div class="filterbar">
+<form method="get" action="/episodes" hx-get="/episodes" hx-target="#episodes-result" hx-swap="outerHTML" hx-select="#episodes-result" hx-trigger="change from:select, submit">
   <div class="filters">
-    <label>Task <input name="task_name" value="{{ task_name or '' }}"></label>
+    <label>Task <input name="task_name" value="{{ task_name or '' }}" placeholder="e.g. pick cup"></label>
     <label>Quality <select name="quality"><option value="">Any</option><option value="good" {% if quality == 'good' %}selected{% endif %}>good</option><option value="usable" {% if quality == 'usable' %}selected{% endif %}>usable</option><option value="bad" {% if quality == 'bad' %}selected{% endif %}>bad</option></select></label>
     <button class="btn" type="submit">Filter <span class="spinner" aria-hidden="true"></span></button>
   </div>
 </form>
+</div>
+<div id="episodes-result">
 <table id="episodes-table">
   <thead><tr><th>Episode</th><th>Robot</th><th>Task</th><th>Recorded</th><th>Quality</th></tr></thead>
   <tbody>
@@ -30,4 +35,5 @@
   </tbody>
 </table>
 <p>Showing {{ episodes|length }} of {{ total }}.</p>
+</div>
 {% endblock %}

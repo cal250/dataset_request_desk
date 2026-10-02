@@ -48,7 +48,7 @@
         hx-get="/requests/{{ req.id }}/eligible" hx-target="#eligible" hx-swap="innerHTML transition:true"
         hx-trigger="change from:select, submit">
       <div class="filters">
-        <label>Task <select name="task_name"><option value="">Any</option></select></label>
+        <label>Task <select name="task_name"><option value="">Any</option>{% for t in tasks %}<option value="{{ t }}">{{ t }}</option>{% endfor %}</select></label>
         <label>Quality <select name="quality"><option value="">good + usable</option><option value="good">good</option><option value="usable">usable</option></select></label>
         <button class="btn" type="submit">Filter <span class="spinner" aria-hidden="true"></span></button>
       </div>
