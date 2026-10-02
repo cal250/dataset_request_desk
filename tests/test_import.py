@@ -140,6 +140,34 @@ def test_episode_list_filters(
     _login(client, operator_user)
     assert len(client.get("/episodes", params={"task_name": "pick cup"}).json()) == 2
     assert len(client.get("/episodes", params={"quality": "good"}).json()) == 1
+    # Empty quality means Any: must not 422, must return everything.
+    assert len(client.get("/episodes", params={"quality": ""}).json()) == 2
+    assert (
+        client.get("/episodes", params={"quality": "bogus"}).status_code
+        == status.HTTP_422_UNPROCESSABLE_CONTENT
+    )
 
     _login(client, client_user)
     assert client.get("/episodes").status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_episode_pagination(client: TestClient, db_session, operator_user: User) -> None:
+    rows = "".join(
+        f"EP-P{i:02d},arm-01,pick cup,2026-08-30T10:25:00,60,Aline,good\n" for i in range(5)
+    )
+    _run(db_session, rows)
+    _login(client, operator_user)
+    page1 = client.get("/episodes", params={"per_page": 2, "page": 1}).json()
+    page3 = client.get("/episodes", params={"per_page": 2, "page": 3}).json()
+    assert [e["episode_id"] for e in page1] == ["EP-P00", "EP-P01"]
+    assert [e["episode_id"] for e in page3] == ["EP-P04"]
+    # Pages clamp instead of erroring.
+    assert len(client.get("/episodes", params={"per_page": 2, "page": 99}).json()) == 1
+
+    html = client.get(
+        "/episodes",
+        params={"per_page": 2, "page": 2},
+        headers={"HX-Request": "true"},
+    ).text
+    assert "Showing 3–4 of 5." in html
+    assert "Page 2 of 3" in html

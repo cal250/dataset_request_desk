@@ -21,6 +21,7 @@
   <div class="filters">
     <label>Task <input name="task_name" value="{{ task_name or '' }}" placeholder="e.g. pick cup"></label>
     <label>Quality <select name="quality"><option value="">Any</option><option value="good" {% if quality == 'good' %}selected{% endif %}>good</option><option value="usable" {% if quality == 'usable' %}selected{% endif %}>usable</option><option value="bad" {% if quality == 'bad' %}selected{% endif %}>bad</option></select></label>
+    <label>Per page <select name="per_page">{% for n in per_page_options %}<option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}</option>{% endfor %}</select></label>
     <button class="btn" type="submit">Filter <span class="spinner" aria-hidden="true"></span></button>
   </div>
 </form>
@@ -34,6 +35,21 @@
   {% endfor %}
   </tbody>
 </table>
-<p>Showing {{ episodes|length }} of {{ total }}.</p>
+<div class="pager">
+  <span>Showing {{ range_start }}–{{ range_end }} of {{ total }}.</span>
+  <span class="pager-controls">
+    {% if page > 1 %}
+    <a class="btn" href="/episodes?task_name={{ task_name | urlencode }}&amp;quality={{ quality }}&amp;per_page={{ per_page }}&amp;page={{ page - 1 }}"
+       hx-get="/episodes?task_name={{ task_name | urlencode }}&amp;quality={{ quality }}&amp;per_page={{ per_page }}&amp;page={{ page - 1 }}"
+       hx-target="#episodes-result" hx-swap="outerHTML" hx-select="#episodes-result">← Prev</a>
+    {% endif %}
+    <span>Page {{ page }} of {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a class="btn" href="/episodes?task_name={{ task_name | urlencode }}&amp;quality={{ quality }}&amp;per_page={{ per_page }}&amp;page={{ page + 1 }}"
+       hx-get="/episodes?task_name={{ task_name | urlencode }}&amp;quality={{ quality }}&amp;per_page={{ per_page }}&amp;page={{ page + 1 }}"
+       hx-target="#episodes-result" hx-swap="outerHTML" hx-select="#episodes-result">Next →</a>
+    {% endif %}
+  </span>
+</div>
 </div>
 {% endblock %}

@@ -40,7 +40,13 @@ body {
   display: flex;
   flex-direction: column;
   padding: 16px 12px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  overflow-y: auto;
 }
+.main { margin-left: 232px; }
 .brand { font-weight: 700; font-size: 15px; padding: 4px 8px; }
 .brand small { display: block; font-weight: 400; font-size: 12px; opacity: 0.7; }
 .nav { margin-top: 16px; display: flex; flex-direction: column; gap: 2px; }
@@ -172,9 +178,12 @@ tbody tr { transition: background 0.15s ease; }
   z-index: 50;
 }
 #toast.show { display: block; animation: toastin 0.2s ease; }
+.pager { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; color: var(--text-muted); flex-wrap: wrap; gap: 8px; }
+.pager-controls { display: flex; align-items: center; gap: 8px; }
 @keyframes toastin { from { transform: translateY(8px); opacity: 0; } }
 @media (max-width: 800px) {
   .sidebar { display: none; }
+  .main { margin-left: 0; }
   .detail { grid-template-columns: 1fr; }
   .content { padding: 16px; }
 }

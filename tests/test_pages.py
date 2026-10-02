@@ -105,7 +105,7 @@ def test_htmx_partial_request_returns_filtered_html(
     assert response.status_code == 200
     assert 'id="episodes-result"' in response.text
     # Counter travels inside the swapped region, so it stays truthful.
-    assert "Showing 2 of 2" in response.text
+    assert "Showing 1–2 of 2." in response.text
 
 
 def test_json_list_still_returns_json(client: TestClient, client_user: User) -> None:

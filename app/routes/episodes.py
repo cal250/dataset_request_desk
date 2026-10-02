@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -56,41 +56,117 @@ def _report_out(report: ImportReport) -> ImportReportOut:
     )
 
 
+PER_PAGE_OPTIONS = (10, 25, 50, 100)
+
+
+def _parse_quality(raw: str | None) -> EpisodeQuality | None:
+    """Empty string means Any; anything else must be a known quality."""
+    if raw is None or not raw.strip():
+        return None
+    try:
+        return EpisodeQuality(raw.strip().lower())
+    except ValueError as err:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Unknown quality {raw!r}",
+        ) from err
+
+
+def _filtered_query(task_name: str | None, quality: EpisodeQuality | None):
+    query = select(Episode).order_by(Episode.id)
+    if task_name and task_name.strip():
+        query = query.where(Episode.task_name == " ".join(task_name.split()).lower())
+    if quality is not None:
+        query = query.where(Episode.quality == quality)
+    return query
+
+
+def _page_context(
+    *,
+    rows: list[Episode],
+    total: int,
+    page: int,
+    per_page: int,
+    task_name: str,
+    quality: str,
+    report=None,
+    user=None,
+):
+    total_pages = max((total + per_page - 1) // per_page, 1)
+    page = min(max(page, 1), total_pages)
+    start = (page - 1) * per_page + 1 if total else 0
+    return {
+        "user": user,
+        "active": "episodes",
+        "episodes": rows,
+        "total": total,
+        "task_name": task_name,
+        "quality": quality,
+        "report": report,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": total_pages,
+        "range_start": start,
+        "range_end": min(page * per_page, total),
+        "per_page_options": PER_PAGE_OPTIONS,
+    }
+
+
 @router.get("/episodes", response_model=list[EpisodeOut])
 def list_episodes(
     request: Request,
     user: Annotated[User, Depends(get_operator_user)],
     session: Annotated[Session, Depends(get_db_session)],
     task_name: str | None = None,
-    quality: EpisodeQuality | None = None,
-    limit: int = 50,
-    offset: int = 0,
+    quality: str | None = None,
+    page: int = 1,
+    per_page: int = 50,
+    limit: int | None = None,  # legacy JSON params, still honored
+    offset: int | None = None,
 ):
-    """Operator episode search with task/quality filters (paginated from day one)."""
-    query = select(Episode).order_by(Episode.id)
-    if task_name and task_name.strip():
-        query = query.where(Episode.task_name == " ".join(task_name.split()).lower())
-    if quality is not None:
-        query = query.where(Episode.quality == quality)
+    """Operator episode search with task/quality filters and pagination."""
+    parsed_quality = _parse_quality(quality)
+    query = _filtered_query(task_name, parsed_quality)
     total = session.scalar(select(func.count()).select_from(query.subquery()))
-    page_limit = min(max(limit, 1), 200)
-    page_offset = max(offset, 0)
-    rows = list(session.scalars(query.offset(page_offset).limit(page_limit)).all())
+    if limit is not None or offset is not None:  # legacy API-style paging
+        page_limit = min(max(limit or 50, 1), 200)
+        page_offset = max(offset or 0, 0)
+        rows = list(session.scalars(query.offset(page_offset).limit(page_limit)).all())
+        if wants_html(request):
+            page = page_offset // page_limit + 1
+            return templates.TemplateResponse(
+                request,
+                "episodes.html",
+                _page_context(
+                    rows=rows,
+                    total=total,
+                    page=page,
+                    per_page=page_limit,
+                    task_name=(task_name or "").strip(),
+                    quality=parsed_quality.value if parsed_quality else "",
+                    user=user,
+                ),
+            )
+        return rows
+    per_page = min(max(per_page, 1), 100)
+    total_pages = max((total + per_page - 1) // per_page, 1)
+    page = min(max(page, 1), total_pages)
+    rows = list(
+        session.scalars(query.offset((page - 1) * per_page).limit(per_page)).all()
+    )
     if wants_html(request):
         return templates.TemplateResponse(
             request,
             "episodes.html",
-            {
-                "user": user,
-                "active": "episodes",
-                "episodes": rows,
-                "total": total,
-                "task_name": task_name or "",
-                "quality": quality.value if quality else "",
-                "report": None,
-                "offset": page_offset,
-                "limit": page_limit,
-            },
+            _page_context(
+                rows=rows,
+                total=total,
+                page=page,
+                per_page=per_page,
+                task_name=(task_name or "").strip(),
+                quality=parsed_quality.value if parsed_quality else "",
+                user=user,
+            ),
         )
     return rows
 
@@ -122,16 +198,15 @@ def import_upload(
         return templates.TemplateResponse(
             request,
             "episodes.html",
-            {
-                "user": user,
-                "active": "episodes",
-                "episodes": rows,
-                "total": total,
-                "task_name": "",
-                "quality": "",
-                "report": _report_out(report),
-                "offset": 0,
-                "limit": 50,
-            },
+            _page_context(
+                rows=rows,
+                total=total,
+                page=1,
+                per_page=50,
+                task_name="",
+                quality="",
+                report=_report_out(report),
+                user=user,
+            ),
         )
     return _report_out(report)
