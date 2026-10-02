@@ -72,7 +72,14 @@ def db_session(_test_engine) -> Generator[Session, None, None]:
     """Function-scoped session inside a rolled-back transaction (test isolation)."""
     connection = _test_engine.connect()
     transaction = connection.begin()
-    TestingSession = sessionmaker(bind=connection, autoflush=False, expire_on_commit=False)
+    # Savepoint mode: service-layer session.commit() only releases a savepoint,
+    # so the outer rollback still wipes everything this test wrote.
+    TestingSession = sessionmaker(
+        bind=connection,
+        autoflush=False,
+        expire_on_commit=False,
+        join_transaction_mode="create_savepoint",
+    )
     session = TestingSession()
     try:
         yield session
