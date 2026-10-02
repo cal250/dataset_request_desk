@@ -179,6 +179,8 @@ tbody tr { transition: background 0.15s ease; }
 }
 #toast.show { display: block; animation: toastin 0.2s ease; }
 .pager { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; color: var(--text-muted); flex-wrap: wrap; gap: 8px; }
+.live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--success); margin-right: 6px; animation: pulse 2s ease infinite; }
+@keyframes pulse { 50% { opacity: 0.4; } }
 .pager-controls { display: flex; align-items: center; gap: 8px; }
 @keyframes toastin { from { transform: translateY(8px); opacity: 0; } }
 @media (max-width: 800px) {

@@ -5,8 +5,9 @@ requests ("200 episodes of pick cup by December"); operators fulfil them by
 assigning imported robot episodes; clients accept or reject the delivery.
 
 Python + FastAPI + PostgreSQL + HTMX/Jinja. One Compose stack serves the UI,
-the JSON API, and the database. No stretch item was taken: the full budget went
-into the required scope, tested.
+the JSON API, and the database. Stretch item taken: **real-time (SSE)** — the
+operator request list refreshes live on creations and status changes (see
+*Real-time updates* below).
 
 ## Step 0 — Start the system (from a clean clone)
 
@@ -77,6 +78,16 @@ conflicts, 2 in-file duplicates**. Rejected: unknown robots/qualities,
 ambiguous dates (`14/08/2026`), bad durations (`N/A`, `45.5`, `-5`, `999999`),
 blank fields. Normalized, never guessed: `USABLE → usable`,
 `  Pick Cup  → pick cup`.
+
+## Step 5b — Real-time updates (stretch: SSE)
+
+Open **Requests** as `ops1` in two browser windows. In one, move a request
+through its workflow (or create one as `client-a`): the other window's list
+refreshes within a second, with a pulsing **Live** badge while connected.
+Technically: `GET /events` streams `request.created`/`request.updated` frames
+(operator/admin only; heartbeats keep it alive), published fire-and-forget from
+the request service after each commit. Single-process broadcast — a
+multi-worker deployment would need Redis pub/sub instead.
 
 ## Step 6 — Run the checks (same environment, one command each)
 

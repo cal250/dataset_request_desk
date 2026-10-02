@@ -10,6 +10,7 @@ from app.auth import ensure_role
 from app.models.assignment import Assignment
 from app.models.request import DatasetRequest, RequestStatus, StatusHistory
 from app.models.user import User, UserRole
+from app.realtime import publish as publish_event
 
 # (from, to) -> owner of that step. Delivery additionally needs the threshold.
 _OPERATOR_STEPS = {
@@ -75,6 +76,7 @@ def create_request(
     )
     session.commit()
     session.refresh(request)
+    publish_event("request.created", request.id, request.status.value, client.id)
     return request
 
 
@@ -127,4 +129,5 @@ def transition_request(
     )
     session.commit()
     session.refresh(request)
+    publish_event("request.updated", request.id, request.status.value, actor.id)
     return request

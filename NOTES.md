@@ -30,8 +30,12 @@ Everything else (sessions, filters, pagination) is derived, never stored.
 ## 2. Left out, simplified, next two days
 
 Left out: password reset/MFA, full-text search, batch assignment, import job
-history tables, the stretch item (no realtime/background/deployment — core
-first, per the brief). Simplified: episode list pagination without total-page
+history tables, the background/deployment stretch options. Stretch taken:
+**real-time (SSE)** — in-process bounded-queue broadcast, operator-only
+`/events` feed, live-refreshing request list. Chosen because the HTMX pages
+already swap fragments, so it cost one bus module + one endpoint with no new
+infrastructure; the honest limit is single-process (documented Redis pub/sub
+step for multi-worker). Simplified: episode list pagination without total-page
 prefetch; analytics without rollups; toasts via query param instead of a
 session flash store; no CSRF tokens yet (SameSite=lax + POST-only mutations;
 tokens are the known gap — see §4).

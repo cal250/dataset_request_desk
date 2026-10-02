@@ -7,12 +7,13 @@
   {% if user.role == 'client' %}<a class="btn btn-primary" href="/requests/new">Create request</a>{% endif %}
 </div>
 {% if requests %}
+<div id="requests-result">
 <div class="chips" aria-label="Status summary">
   {% for s in status_counts %}
   <span class="chip">{{ s.label }} · {{ s.count }}</span>
   {% endfor %}
 </div>
-<table>
+<table id="requests-table">
   <thead><tr>
     <th>ID</th>{% if user.role != 'client' %}<th>Client</th>{% endif %}<th>Task</th>
     <th>Progress</th><th>Deadline</th><th>Status</th><th>Updated</th>
@@ -33,7 +34,28 @@
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% else %}
+<div id="requests-result">
 <div class="empty">No requests yet.{% if user.role == 'client' %} <a href="/requests/new">Create request</a>.{% endif %}</div>
+</div>
+{% endif %}
+{% if user.role in ('operator', 'admin') %}
+<p><span class="chip"><span class="live-dot" aria-hidden="true"></span> Live</span></p>
+<script>
+(function () {
+  var source = new EventSource("/events");
+  source.onmessage = function () {
+    fetch("/requests", {headers: {"HX-Request": "true", "Accept": "text/html"}})
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        var doc = document.createElement("div");
+        doc.innerHTML = html;
+        var next = doc.querySelector("#requests-result");
+        if (next) document.getElementById("requests-result").outerHTML = next.outerHTML;
+      });
+  };
+})();
+</script>
 {% endif %}
 {% endblock %}
